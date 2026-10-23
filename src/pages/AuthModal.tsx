@@ -5,7 +5,7 @@ import {
   Lock, Mail, Hash, User as UserIcon, Sparkles,
   CheckCircle2, GraduationCap, Camera, AlertCircle,
   ArrowRight, ArrowLeft, RefreshCw, Eye, EyeOff, Check,
-  ShieldCheck, Building2, ShieldAlert
+  ShieldCheck, Building2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 

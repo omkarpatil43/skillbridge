@@ -197,9 +197,10 @@ export const analyzeIdCard = async (imageBuffer: Buffer): Promise<IdCardAnalysis
       const base64Image = processed.toString('base64');
       const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
       const candidateModels = Array.from(new Set([
-        process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+        process.env.GEMINI_MODEL || 'gemini-3.6-flash',
+        'gemini-3.6-flash',
+        'gemini-3.8-flash',
         'gemini-2.5-flash',
-        'gemini-3.5-flash',
         'gemini-flash-latest',
       ]));
 

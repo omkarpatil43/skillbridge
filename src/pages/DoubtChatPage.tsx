@@ -22,7 +22,7 @@ interface DoubtChatPageProps {
 }
 
 export const DoubtChatPage: React.FC<DoubtChatPageProps> = ({ onToast }) => {
-  const { currentUser, switchDemoUser } = useAuth();
+  const { currentUser } = useAuth();
   const { doubts, postDoubt, replyToDoubt, verifyReply, upvoteDoubt, upvoteReply } = useData();
 
   const [selectedBranch, setSelectedBranch] = useState<string>('All');
@@ -188,24 +188,6 @@ export const DoubtChatPage: React.FC<DoubtChatPageProps> = ({ onToast }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Sparkles size={16} color="#4f46e5" />
           <span><strong>How it works:</strong> Click any question on the left to read answers or write your solution below. Answers by Seniors show a verified <strong style={{ color: '#9333ea' }}>Senior Verified Badge</strong>!</span>
-        </div>
-        <div>
-          <button
-            onClick={() => switchDemoUser('u-2')}
-            style={{
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--border-glass)',
-              color: 'var(--accent-primary)',
-              borderRadius: 6,
-              padding: '5px 12px',
-              fontSize: '0.78rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              boxShadow: 'var(--shadow-sm)'
-            }}
-          >
-            Switch to Senior Profile to Verify Answers
-          </button>
         </div>
       </div>
 

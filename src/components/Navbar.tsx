@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import {
   GraduationCap, BookOpen, Users, MessageSquareCode, Bot, Briefcase, Award,
-  Home, User as UserIcon, LogOut, Sparkles, Menu, X, ChevronDown,
-  ShieldCheck, Building, Mail, Hash, Calendar, Moon, Sun, MessageSquare
+  Home, User as UserIcon, LogOut, Sparkles, Menu, X,
+  ShieldCheck, Mail, Hash, Calendar, Moon, Sun, MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types';
@@ -16,10 +16,9 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, openAuthModal, darkMode, toggleDarkMode }) => {
-  const { currentUser, logout, switchDemoUser, allUsers } = useAuth();
+  const { currentUser, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-  const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false);
 
   const navItems = [
     { id: 'home', label: 'Home', icon: Home },
@@ -41,15 +40,6 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, openAut
       case 'college_admin': return 'Institute Admin';
       case 'club_admin': return 'Club Lead';
       default: return 'Student';
-    }
-  };
-
-  const getRoleIcon = (role: UserRole) => {
-    switch (role) {
-      case 'senior': return <ShieldCheck size={14} />;
-      case 'college_admin': return <Building size={14} />;
-      case 'club_admin': return <Users size={14} />;
-      default: return <GraduationCap size={14} />;
     }
   };
 
@@ -124,62 +114,6 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, openAut
           </button>
           {currentUser ? (
             <>
-              {/* Role Switcher */}
-              <div style={{ position: 'relative' }}>
-                <button
-                  onClick={() => setRoleSwitcherOpen(!roleSwitcherOpen)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '6px 12px', borderRadius: 'var(--radius-full)',
-                    background: 'var(--sky-50)', border: '1px solid var(--sky-200)',
-                    color: 'var(--sky-700)', fontSize: '0.78rem', cursor: 'pointer',
-                  }}
-                >
-                  <span className="badge">{getRoleLabel(currentUser.role)}</span>
-                  <ChevronDown size={13} />
-                </button>
-                {roleSwitcherOpen && (
-                  <div
-                    style={{
-                      position: 'absolute', right: 0, top: '110%', width: 260,
-                      background: '#fff', border: '1px solid var(--sky-200)',
-                      borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-lg)',
-                      padding: 8, zIndex: 200,
-                    }}
-                    onMouseLeave={() => setRoleSwitcherOpen(false)}
-                  >
-                    <div style={{ padding: '6px 10px', fontSize: '0.72rem', color: 'var(--sky-600)', fontWeight: 600 }}>
-                      SWITCH DEMO PROFILE
-                    </div>
-                    {allUsers.map(user => (
-                      <div
-                        key={user.id}
-                        onClick={() => { switchDemoUser(user.id); setRoleSwitcherOpen(false); }}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 8,
-                          padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
-                          background: currentUser.id === user.id ? 'var(--sky-50)' : 'transparent',
-                        }}
-                      >
-                        <div style={{
-                          width: 28, height: 28, borderRadius: '50%',
-                          background: 'var(--sky-100)', display: 'flex',
-                          alignItems: 'center', justifyContent: 'center', color: 'var(--sky-600)',
-                        }}>
-                          {getRoleIcon(user.role)}
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--sky-900)' }}>{user.name}</div>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--sky-600)' }}>
-                            {user.rollNo} Â· {getRoleLabel(user.role)}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
               {/* User Dropdown */}
               <div style={{ position: 'relative' }}>
                 <button

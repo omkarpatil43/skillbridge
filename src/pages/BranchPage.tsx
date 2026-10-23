@@ -167,7 +167,7 @@ export const BranchPage: React.FC<BranchPageProps> = ({ onToast }) => {
   const isPendingSenior = Boolean(currentUser && currentUser.role === 'senior' && currentUser.verificationStatus !== 'Verified');
   const canUpload = isVerifiedSeniorOrAdmin;
 
-  const canDeleteContent = (authorRole?: UserRole) => {
+  const canDeleteContent = (_authorRole?: UserRole) => {
     if (!currentUser) return false;
     if (['college_admin', 'admin'].includes(currentUser.role)) return true;
     if (currentUser.role === 'senior' && currentUser.verificationStatus === 'Verified') return true;

@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import { connectDB } from './config/db.js';
+import { connectDB, getMongoStatus } from './config/db.js';
 import { seedDatabaseIfEmpty } from './seed/seedData.js';
 
 // Modular Route Handlers
@@ -29,7 +29,8 @@ app.get('/api/health', (_req: Request, res: Response) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     service: 'SkillBridge Central API Server',
-    database: 'MongoDB',
+    database: getMongoStatus(),
+    databaseMode: getMongoStatus() === 'connected' ? 'mongodb' : 'local-fallback',
   });
 });
 
@@ -63,7 +64,7 @@ const startServer = async () => {
     console.log(`Ã°Å¸Å¡â‚¬ SkillBridge Backend Server is LIVE!`);
     console.log(`Ã°Å¸Å’Â Server URL:        http://localhost:${PORT}`);
     console.log(`Ã°Å¸â€œÂ¡ API Health Check:  http://localhost:${PORT}/api/health`);
-    console.log(`Ã°Å¸â€œÂ¦ MongoDB Database:  skillbridge`);
+    console.log(`Database mode:        ${getMongoStatus() === 'connected' ? 'MongoDB (skillbridge)' : `local fallback (${getMongoStatus()})`}`);
     console.log(`======================================================\n`);
   });
 };

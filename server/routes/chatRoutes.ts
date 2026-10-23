@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
-import path from 'path';
 import fs from 'fs';
 import { retrieveSkillBridgeContext } from '../services/ragService.js';
-import { ChatTurn, GeminiServiceError, generateGeminiResponse, generateSkillBridgeAIResponse } from '../services/geminiService.js';
+import { ChatTurn, generateGeminiResponse, generateSkillBridgeAIResponse } from '../services/geminiService.js';
 import { verifyAuthToken } from '../services/authToken.js';
 import { ChatMessageModel } from '../models/ChatMessage.js';
 import { uploadChatFile, getSecureChatFilePath } from '../services/uploadService.js';
@@ -238,7 +237,7 @@ chatRouter.get('/community/files/:filename', (req: Request, res: Response) => {
       return res.status(404).json({ error: 'File not found' });
     }
     return res.sendFile(filePath);
-  } catch (error) {
+  } catch {
     return res.status(403).json({ error: 'Access denied' });
   }
 });

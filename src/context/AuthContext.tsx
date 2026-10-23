@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, StudentLevel } from '../types';
-import { INITIAL_USERS } from '../data/initialData';
 import { api } from '../services/api';
 
 export interface SignupAnalysis {
@@ -20,35 +19,35 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   authToken: string | null;
-  allUsers: User[];
   login: (email: string, rollNo: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signup: (formData: FormData) => Promise<{ success: boolean; analysis: SignupAnalysis; error?: string }>;
   confirmSignup: (confirmed: boolean, requestedLevel?: string, note?: string) => Promise<{ success: boolean; error?: string }>;
   clubAdminSignup: (data: { email: string; name: string; password: string; clubName: string; phone?: string }) => Promise<{ success: boolean; message?: string; error?: string }>;
   logout: () => void;
-  switchDemoUser: (userId: string) => void;
   refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_STORAGE_KEY = 'skillbridge_current_user_v2';
-const USERS_STORAGE_KEY = 'skillbridge_users_v2';
 const AUTH_TOKEN_STORAGE_KEY = 'skillbridge_auth_token_v2';
+const DEMO_USER_EMAILS = new Set(['student@pict.edu', 'senior@pict.edu', 'clublead@pict.edu']);
+const USERS_STORAGE_KEY = 'skillbridge_users_v2';
+
+const isDemoUser = (user: User) => DEMO_USER_EMAILS.has(user.email.trim().toLowerCase());
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem(USERS_STORAGE_KEY);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return INITIAL_USERS;
-  });
-
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem(AUTH_STORAGE_KEY);
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+      try {
+        const user = JSON.parse(saved) as User;
+        if (!isDemoUser(user)) return user;
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+      } catch (e) {
+        console.error(e);
+      }
     }
     return null;
   });
@@ -59,19 +58,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Sync users list from server
-  const fetchUsers = useCallback(async () => {
-    try {
-      const res = await fetch('/api/auth/users');
-      if (res.ok) {
-        const remoteUsers: User[] = await res.json();
-        if (remoteUsers && remoteUsers.length > 0) {
-          setUsers(remoteUsers);
-        }
-      }
-    } catch (err) {
-      console.info('User directory sync note:', err);
-    }
+  useEffect(() => {
+    localStorage.removeItem(USERS_STORAGE_KEY);
   }, []);
 
   const logout = useCallback(() => {
@@ -99,11 +87,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       setIsLoading(false);
-      fetchUsers();
     };
 
     initAuth();
-  }, [authToken, fetchUsers, logout]);
+  }, [authToken, logout]);
 
   // Persist current user
   useEffect(() => {
@@ -113,11 +100,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem(AUTH_STORAGE_KEY);
     }
   }, [currentUser]);
-
-  // Persist users list
-  useEffect(() => {
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
-  }, [users]);
 
   const refreshUser = async () => {
     if (!authToken) return;
@@ -145,31 +127,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAuthToken(result.token);
         localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, result.token);
 
-        setUsers(prev => {
-          const exists = prev.some(u => u.id === result.user.id || u.rollNo === result.user.rollNo);
-          return exists ? prev.map(u => u.id === result.user.id ? result.user : u) : [result.user, ...prev];
-        });
-
         return { success: true };
       }
       return { success: false, error: 'Login failed' };
     } catch (error: any) {
-      // Fallback: If network or Atlas credentials reject in local testing, allow login for verified demo accounts
-      const cleanEmail = email.trim().toLowerCase();
-      const cleanRoll = rollNo.trim().toUpperCase();
-      const matched = INITIAL_USERS.find(
-        (u) =>
-          u.email.toLowerCase() === cleanEmail ||
-          (cleanRoll && u.rollNo?.toUpperCase() === cleanRoll) ||
-          (cleanEmail.startsWith('student') && u.role === 'student') ||
-          (cleanEmail.startsWith('senior') && u.role === 'senior') ||
-          (cleanEmail.startsWith('club') && u.role === 'club_admin') ||
-          (cleanEmail.startsWith('admin') && u.role === 'college_admin')
-      );
-      if (matched) {
-        setCurrentUser(matched);
-        return { success: true };
-      }
       return { success: false, error: error.message || 'Login failed' };
     }
   };
@@ -184,8 +145,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentUser(result.user);
         setAuthToken(result.token);
         localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, result.token);
-
-        setUsers(prev => [result.user, ...prev.filter(u => u.id !== result.user.id)]);
 
         return {
           success: true,
@@ -209,7 +168,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await api.confirmSignup(authToken, confirmed, requestedLevel, note);
       if (result && result.user) {
         setCurrentUser(result.user);
-        setUsers(prev => prev.map(u => u.id === result.user.id ? result.user : u));
         return { success: true };
       }
       return { success: false, error: 'Failed to confirm status' };
@@ -227,16 +185,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Demo user switcher retained for legacy fallback if triggered
-  const switchDemoUser = (userId: string) => {
-    const found = users.find(u => u.id === userId) || INITIAL_USERS.find(u => u.id === userId);
-    if (found) {
-      setCurrentUser(found);
-      setAuthToken(null);
-      localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
-    }
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -244,13 +192,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!currentUser,
         isLoading,
         authToken,
-        allUsers: users,
         login,
         signup,
         confirmSignup,
         clubAdminSignup,
         logout,
-        switchDemoUser,
         refreshUser,
       }}
     >

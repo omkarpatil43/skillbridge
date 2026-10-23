@@ -28,7 +28,7 @@ doubtRouter.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Title, description, and subject are required' });
     }
 
-    const newDoubt = await DoubtModel.create({
+    const doubtData = {
       id: `d-${Date.now()}`,
       title,
       description,
@@ -43,9 +43,16 @@ doubtRouter.post('/', async (req: Request, res: Response) => {
       upvotes: 0,
       solved: false,
       replies: [],
-    });
+    };
 
-    return res.status(201).json(newDoubt);
+    let doc: any = null;
+    try {
+      doc = await DoubtModel.create(doubtData);
+    } catch {
+      // MongoDB unavailable — fall through to local store
+    }
+    const localDoubt = db.postDoubt(doubtData);
+    return res.status(201).json(doc || localDoubt);
   } catch (error) {
     console.error('Error creating doubt:', error);
     return res.status(500).json({ error: 'Internal server error' });
@@ -80,14 +87,23 @@ doubtRouter.post('/:id/replies', async (req: Request, res: Response) => {
       updateQuery.$set = { solved: true };
     }
 
-    const updated = await DoubtModel.findOneAndUpdate(
-      { id: req.params.id },
-      updateQuery,
-      { new: true }
-    );
+    let saved = false;
+    try {
+      const updated = await DoubtModel.findOneAndUpdate(
+        { id: req.params.id },
+        updateQuery,
+        { new: true }
+      );
+      if (updated) saved = true;
+    } catch {
+      // fallback to local store
+    }
 
-    if (!updated) {
-      return res.status(404).json({ error: 'Doubt not found' });
+    if (!saved) {
+      const localReply = db.replyToDoubt(req.params.id, reply);
+      if (!localReply) {
+        return res.status(404).json({ error: 'Doubt not found' });
+      }
     }
 
     return res.status(201).json(reply);
@@ -125,10 +141,12 @@ doubtRouter.put('/:id/replies/:replyId/verify', async (req: Request, res: Respon
 // DELETE /api/doubts/:id
 doubtRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const deleted = await DoubtModel.findOneAndDelete({ id: req.params.id });
-    if (!deleted) {
-      return res.status(404).json({ error: 'Doubt not found' });
+    try {
+      await DoubtModel.findOneAndDelete({ id: req.params.id });
+    } catch {
+      // fallback
     }
+    db.removeDoubt(req.params.id);
     return res.json({ success: true, message: 'Doubt removed' });
   } catch (error) {
     console.error('Error deleting doubt:', error);
@@ -160,15 +178,24 @@ doubtRouter.delete('/:id/replies/:replyId', async (req: Request, res: Response) 
 // POST /api/doubts/:id/upvote
 doubtRouter.post('/:id/upvote', async (req: Request, res: Response) => {
   try {
-    const updated = await DoubtModel.findOneAndUpdate(
-      { id: req.params.id },
-      { $inc: { upvotes: 1 } },
-      { new: true }
-    );
-    if (!updated) {
+    let upvotes: number | null = null;
+    try {
+      const updated = await DoubtModel.findOneAndUpdate(
+        { id: req.params.id },
+        { $inc: { upvotes: 1 } },
+        { new: true }
+      );
+      if (updated) upvotes = updated.upvotes;
+    } catch {
+      // fallback
+    }
+    if (upvotes === null) {
+      upvotes = db.upvoteDoubt(req.params.id);
+    }
+    if (upvotes === null) {
       return res.status(404).json({ error: 'Doubt not found' });
     }
-    return res.json({ upvotes: updated.upvotes });
+    return res.json({ upvotes });
   } catch (error) {
     console.error('Error upvoting doubt:', error);
     return res.status(500).json({ error: 'Internal server error' });
@@ -179,20 +206,27 @@ doubtRouter.post('/:id/upvote', async (req: Request, res: Response) => {
 doubtRouter.post('/:id/replies/:replyId/upvote', async (req: Request, res: Response) => {
   try {
     const { id, replyId } = req.params;
-    const doubt = await DoubtModel.findOne({ id });
-    if (!doubt) {
-      return res.status(404).json({ error: 'Doubt not found' });
+    let upvotes: number | null = null;
+    try {
+      const doubt = await DoubtModel.findOne({ id });
+      if (doubt) {
+        const reply = doubt.replies.find(r => r.id === replyId);
+        if (reply) {
+          reply.upvotes += 1;
+          await doubt.save();
+          upvotes = reply.upvotes;
+        }
+      }
+    } catch {
+      // fallback
     }
-
-    const reply = doubt.replies.find(r => r.id === replyId);
-    if (!reply) {
-      return res.status(404).json({ error: 'Reply not found' });
+    if (upvotes === null) {
+      upvotes = db.upvoteReply(id, replyId);
     }
-
-    reply.upvotes += 1;
-    await doubt.save();
-
-    return res.json({ upvotes: reply.upvotes });
+    if (upvotes === null) {
+      return res.status(404).json({ error: 'Doubt or reply not found' });
+    }
+    return res.json({ upvotes });
   } catch (error) {
     console.error('Error upvoting reply:', error);
     return res.status(500).json({ error: 'Internal server error' });

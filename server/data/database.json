@@ -1,6 +1,60 @@
 {
   "users": [
     {
+      "id": "u-1792741298762",
+      "name": "omkk",
+      "rollNo": "342",
+      "email": "omkk@pict.edu",
+      "passwordHash": "$2b$10$Q1Qp95OpvZoB4GJpfyJy2OiFZcvfbYMfL88XO4v1gloANO5BYrDTW",
+      "branch": "Computer Science & Engg",
+      "year": "2nd Year (senior)",
+      "role": "senior",
+      "isApproved": true,
+      "adminStatus": "Pending",
+      "avatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80",
+      "bio": "2nd Year (senior) | Senior Student Mentor & Scholar @ PICT",
+      "badges": [
+        "Senior Mentor",
+        "3rd Year Senior"
+      ],
+      "reputation": 100,
+      "batchStartYear": 2025,
+      "batchEndYear": 2029,
+      "yearOfStudy": 2,
+      "studentLevel": "SecondYear",
+      "verificationStatus": "Verified",
+      "ocrConfidenceScore": 0.95,
+      "idCardImageRef": "f57c9fcc-554b-42f6-85d4-8c35ba5f555b.png",
+      "verifiedAt": "2026-10-23T07:41:45.060Z"
+    },
+    {
+      "id": "u-1792566737566",
+      "name": "nik",
+      "rollNo": "33",
+      "email": "nik@pict.edu",
+      "passwordHash": "$2b$10$ommGSamDAi5eDgw.qXcOr.ftRhrbgBLgaWn03XS26TBBkvDWrifTm",
+      "branch": "Computer Science & Engg",
+      "year": "4th Year (Final Year Senior)",
+      "role": "senior",
+      "isApproved": true,
+      "adminStatus": "Pending",
+      "avatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80",
+      "bio": "4th Year (Final Year Senior) | Senior Student Mentor & Scholar @ PICT",
+      "badges": [
+        "Senior Mentor",
+        "Final Year Senior"
+      ],
+      "reputation": 100,
+      "batchStartYear": 2023,
+      "batchEndYear": 2027,
+      "yearOfStudy": 4,
+      "studentLevel": "FinalYear",
+      "verificationStatus": "Verified",
+      "ocrConfidenceScore": 0.95,
+      "idCardImageRef": "df03b2bb-cab1-4271-87f1-88e34254246a.jpeg",
+      "verifiedAt": "2026-10-21T07:13:07.521Z"
+    },
+    {
       "id": "u-1792418117961",
       "name": "nikhilli",
       "rollNo": "2223000",
@@ -395,66 +449,6 @@
       "adminStatus": "Pending"
     },
     {
-      "id": "u-1",
-      "name": "Aarav Sharma",
-      "rollNo": "24CS042",
-      "email": "student@pict.edu",
-      "passwordHash": "$2b$10$6Nnn.qBS/7RxXhlweTeDXOiA5IQh5M6PdgaarSvYCC9UWlVgvGSRy",
-      "branch": "Computer Science & Engg",
-      "year": "1st Year (Fresher)",
-      "role": "student",
-      "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80",
-      "bio": "Curious fresher diving into Web Dev & DSA. Looking for mentors!",
-      "badges": [
-        "Active Learner",
-        "Problem Solver"
-      ],
-      "reputation": 45,
-      "isApproved": true,
-      "verificationStatus": "Verified"
-    },
-    {
-      "id": "u-2",
-      "name": "Priya Mukherjee (Senior)",
-      "rollNo": "22CS015",
-      "email": "senior@pict.edu",
-      "passwordHash": "$2b$10$6Nnn.qBS/7RxXhlweTeDXOiA5IQh5M6PdgaarSvYCC9UWlVgvGSRy",
-      "branch": "Computer Science & Engg",
-      "year": "3rd Year (Senior)",
-      "role": "senior",
-      "avatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80",
-      "bio": "Upcoming SWE Intern @ Microsoft | Senior Mentor for DSA & Web Dev | Solved 500+ LeetCode.",
-      "badges": [
-        "Top Mentor",
-        "Verified Senior",
-        "Microsoft SWE Intern"
-      ],
-      "reputation": 420,
-      "isApproved": true,
-      "verificationStatus": "Verified"
-    },
-    {
-      "id": "u-3",
-      "name": "Rohan Deshmukh (Club Lead)",
-      "rollNo": "22IT031",
-      "email": "clublead@pict.edu",
-      "passwordHash": "$2b$10$6Nnn.qBS/7RxXhlweTeDXOiA5IQh5M6PdgaarSvYCC9UWlVgvGSRy",
-      "branch": "Information Technology",
-      "year": "3rd Year",
-      "role": "club_admin",
-      "clubName": "CodeCraft - The Developers Guild",
-      "avatar": "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=150&q=80",
-      "bio": "President @ CodeCraft Club | Open Source Evangelist | Hackathon Organizer",
-      "badges": [
-        "Club Admin",
-        "Hackathon Lead"
-      ],
-      "reputation": 310,
-      "isApproved": true,
-      "adminStatus": "Active",
-      "verificationStatus": "Verified"
-    },
-    {
       "id": "u-4",
       "name": "Dr. K. S. Verma (Dean Academics)",
       "rollNo": "FAC-001",
@@ -473,7 +467,7 @@
       "isApproved": true,
       "adminStatus": "Active",
       "verificationStatus": "Verified",
-      "loginAttempts": 1
+      "loginAttempts": 0
     }
   ],
   "academicMaterials": [

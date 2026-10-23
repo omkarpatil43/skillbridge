@@ -10,6 +10,7 @@ import { isValidPictEmail } from '../services/academicYear.js';
 import { deliverClubAdminInvite } from '../services/inviteMailer.js';
 
 export const adminRouter = Router();
+const DEMO_USER_EMAILS = ['student@pict.edu', 'senior@pict.edu', 'clublead@pict.edu'];
 const collegeAdminOnly = [verifyToken, authorizeRoles('college_admin')];
 const hashToken = (token: string) => crypto.createHash('sha256').update(token).digest('hex');
 const adminPasswordIsStrong = (password: string) => password.length >= 10 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password);
@@ -88,12 +89,18 @@ adminRouter.post('/accept-invite', async (req: AuthenticatedRequest, res: Respon
 });
 
 adminRouter.get('/list-admins', ...collegeAdminOnly, async (_req: AuthenticatedRequest, res: Response) => {
-  const users = await UserModel.find({ role: { $in: ['club_admin', 'college_admin'] } }).sort({ createdAt: -1 });
+  const users = await UserModel.find({
+    role: { $in: ['club_admin', 'college_admin'] },
+    email: { $nin: DEMO_USER_EMAILS },
+  }).sort({ createdAt: -1 });
   return res.json({ success: true, users });
 });
 
 adminRouter.get('/pending-verifications', ...collegeAdminOnly, async (_req: AuthenticatedRequest, res: Response) => {
-  const users = await UserModel.find({ verificationStatus: { $in: ['Pending', 'Rejected'] } }).sort({ createdAt: -1 });
+  const users = await UserModel.find({
+    verificationStatus: { $in: ['Pending', 'Rejected'] },
+    email: { $nin: DEMO_USER_EMAILS },
+  }).sort({ createdAt: -1 });
   return res.json({ success: true, users });
 });
 

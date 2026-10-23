@@ -8,6 +8,7 @@
     "server": "tsx server/index.ts",
     "server:watch": "tsx watch server/index.ts",
     "seed:super-admin": "tsx server/scripts/seedSuperAdmin.ts",
+    "remove:demo-users": "tsx server/scripts/removeDemoUsers.ts",
     "migrate:admin-roles": "tsx server/scripts/migrateAdminRoles.ts",
     "test:gemini": "tsx server/scripts/testGemini.ts",
     "build": "tsc -b && vite build",

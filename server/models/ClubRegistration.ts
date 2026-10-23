@@ -15,7 +15,7 @@ export interface IClubRegistrationDocument extends Document {
   experience: string;
   portfolioLink?: string;
   appliedDate: string;
-  status: 'pending' | 'accepted' | 'reviewed';
+  status: 'pending' | 'accepted' | 'reviewed' | 'rejected';
 }
 
 const ClubRegistrationSchema = new Schema<IClubRegistrationDocument>(
@@ -34,7 +34,7 @@ const ClubRegistrationSchema = new Schema<IClubRegistrationDocument>(
     experience: { type: String, required: true },
     portfolioLink: { type: String },
     appliedDate: { type: String, default: () => new Date().toISOString().split('T')[0] },
-    status: { type: String, enum: ['pending', 'accepted', 'reviewed'], default: 'pending' },
+    status: { type: String, enum: ['pending', 'accepted', 'reviewed', 'rejected'], default: 'pending' },
   },
   {
     timestamps: true,

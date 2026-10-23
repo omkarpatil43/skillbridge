@@ -167,7 +167,7 @@ export interface ClubRegistration {
   experience: string;
   portfolioLink?: string;
   appliedDate: string;
-  status: 'pending' | 'accepted' | 'reviewed';
+  status: 'pending' | 'accepted' | 'reviewed' | 'rejected';
 }
 
 export interface DoubtReply {

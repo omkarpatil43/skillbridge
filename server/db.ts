@@ -15,7 +15,6 @@ import {
   UserRole,
 } from '../src/types';
 import {
-  INITIAL_USERS,
   INITIAL_ACADEMIC_MATERIALS,
   INITIAL_SKILL_RESOURCES,
   INITIAL_CLUBS,
@@ -29,6 +28,8 @@ const __dirname = path.dirname(__filename);
 
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'database.json');
+const DEMO_USER_EMAILS = new Set(['student@pict.edu', 'senior@pict.edu', 'clublead@pict.edu']);
+const DEMO_USER_IDS = new Set(['u-1', 'u-2', 'u-3']);
 
 export interface DatabaseSchema {
   users: User[];
@@ -59,7 +60,15 @@ export class Database {
     try {
       if (fs.existsSync(DB_FILE)) {
         const fileContent = fs.readFileSync(DB_FILE, 'utf-8');
-        return JSON.parse(fileContent);
+        const data = JSON.parse(fileContent) as DatabaseSchema;
+        const existingUsers = data.users || [];
+        data.users = existingUsers.filter(
+          user => !DEMO_USER_EMAILS.has(user.email.trim().toLowerCase()) && !DEMO_USER_IDS.has(user.id)
+        );
+        if (data.users.length !== existingUsers.length) {
+          this.saveDatabase(data);
+        }
+        return data;
       }
     } catch (err) {
       console.error('Error reading database file, re-initializing with seed data:', err);
@@ -67,7 +76,7 @@ export class Database {
 
     // Initialize with rich pre-populated seed data
     const initialDb: DatabaseSchema = {
-      users: INITIAL_USERS,
+      users: [],
       academicMaterials: INITIAL_ACADEMIC_MATERIALS,
       skillResources: INITIAL_SKILL_RESOURCES,
       clubs: INITIAL_CLUBS,
@@ -81,7 +90,7 @@ export class Database {
     return initialDb;
   }
 
-  private saveDatabase(dataToSave?: DatabaseSchema) {
+  public saveDatabase(dataToSave?: DatabaseSchema) {
     try {
       const data = dataToSave || this.data;
       fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
@@ -370,30 +379,31 @@ export class Database {
     return this.data.doubts;
   }
 
-  public postDoubt(doubt: Omit<DoubtQuestion, 'id' | 'date' | 'upvotes' | 'solved' | 'replies'>): DoubtQuestion {
+  public postDoubt(doubt: Partial<DoubtQuestion> & { title: string; description: string; subject: string; branch: string; authorName: string; authorRole: string; authorRollNo: string }): DoubtQuestion {
     const newDoubt: DoubtQuestion = {
+      tags: [],
       ...doubt,
-      id: `d-${Date.now()}`,
-      date: new Date().toISOString().split('T')[0],
-      upvotes: 0,
-      solved: false,
-      replies: [],
+      id: doubt.id || `d-${Date.now()}`,
+      date: doubt.date || new Date().toISOString().split('T')[0],
+      upvotes: doubt.upvotes ?? 0,
+      solved: doubt.solved ?? false,
+      replies: doubt.replies || [],
     };
     this.data.doubts.unshift(newDoubt);
     this.saveDatabase();
     return newDoubt;
   }
 
-  public replyToDoubt(doubtId: string, reply: Omit<DoubtReply, 'id' | 'date' | 'upvotes'>): DoubtReply | null {
+  public replyToDoubt(doubtId: string, reply: Partial<DoubtReply> & { content: string; authorName: string; authorRole: string; authorRollNo: string }): DoubtReply | null {
     const doubt = this.data.doubts.find(d => d.id === doubtId);
     if (!doubt) return null;
 
-    const isSeniorVerified = reply.authorRole === 'senior' || reply.authorRole === 'admin';
+    const isSeniorVerified = reply.isSeniorVerified ?? (reply.authorRole === 'senior' || reply.authorRole === 'admin' || reply.authorRole === 'college_admin');
     const newReply: DoubtReply = {
       ...reply,
-      id: `rep-${Date.now()}`,
-      date: new Date().toISOString().split('T')[0],
-      upvotes: 0,
+      id: reply.id || `rep-${Date.now()}`,
+      date: reply.date || new Date().toISOString().split('T')[0],
+      upvotes: reply.upvotes ?? 0,
       isSeniorVerified,
     };
 
@@ -449,6 +459,54 @@ export class Database {
 
   public getScholarships(): Scholarship[] {
     return this.data.scholarships;
+  }
+
+  // ==========================================
+  // CLUB EVENTS & REGISTRATIONS (extra helpers)
+  // ==========================================
+
+  public removeClubEvent(eventId: string): boolean {
+    let found = false;
+    for (const club of this.data.clubs) {
+      const before = club.events.length;
+      club.events = club.events.filter(e => e.id !== eventId);
+      if (club.events.length !== before) {
+        found = true;
+        break;
+      }
+    }
+    if (found) this.saveDatabase();
+    return found;
+  }
+
+  public removeClubRegistration(id: string): boolean {
+    const before = this.data.clubRegistrations.length;
+    this.data.clubRegistrations = this.data.clubRegistrations.filter(r => r.id !== id);
+    if (this.data.clubRegistrations.length !== before) {
+      this.saveDatabase();
+      return true;
+    }
+    return false;
+  }
+
+  public acceptClubRegistration(id: string): ClubRegistration | null {
+    const reg = this.data.clubRegistrations.find(r => r.id === id);
+    if (reg) {
+      reg.status = 'accepted';
+      this.saveDatabase();
+      return reg;
+    }
+    return null;
+  }
+
+  public rejectClubRegistration(id: string): ClubRegistration | null {
+    const reg = this.data.clubRegistrations.find(r => r.id === id);
+    if (reg) {
+      reg.status = 'rejected';
+      this.saveDatabase();
+      return reg;
+    }
+    return null;
   }
 }
 

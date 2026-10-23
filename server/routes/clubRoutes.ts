@@ -80,7 +80,7 @@ clubRouter.put('/:id', async (req: Request, res: Response) => {
 // DELETE /api/clubs/:id (Delete a club and its registrations)
 clubRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const deletedLocal = db.removeClub(req.params.id);
+    db.removeClub(req.params.id);
     try {
       await ClubModel.findOneAndDelete({ id: req.params.id });
       await ClubRegistrationModel.deleteMany({ clubId: req.params.id });

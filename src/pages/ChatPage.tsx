@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import {
-  MessageCircle, Send, Paperclip, FileText, Film,
-  Music, Archive, X, Download, ShieldCheck, GraduationCap,
+  MessageCircle, Send, Paperclip, FileText,
+  Archive, X, Download, ShieldCheck, GraduationCap,
   Smile, Search, Star, Loader2
 } from 'lucide-react';
 
@@ -55,15 +55,6 @@ const ROOMS: ChatRoom[] = [
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '🔥', '🎉', '😮', '😢', '👏'];
 const ACCEPTED_EXTENSIONS = 'image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.7z,.csv,.json,.py,.js,.ts,.cpp,.java,.c';
-
-function detectType(mime: string): AttachmentType {
-  if (mime.startsWith('image/')) return 'image';
-  if (mime.startsWith('video/')) return 'video';
-  if (mime.startsWith('audio/')) return 'audio';
-  if (mime === 'application/pdf') return 'pdf';
-  if (mime.includes('word') || mime.includes('document')) return 'doc';
-  return 'other';
-}
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

@@ -85,7 +85,7 @@ export const SetupPage: React.FC<SetupPageProps> = ({
     if (pass.length >= 10) score += 25;
     if (/[a-z]/.test(pass) && /[A-Z]/.test(pass)) score += 25;
     if (/\d/.test(pass)) score += 25;
-    if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pass)) score += 25;
+    if (/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(pass)) score += 25;
     return score;
   };
 

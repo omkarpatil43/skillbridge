@@ -80,7 +80,7 @@ export const PlacementPage: React.FC = () => {
   const [prepTracks, setPrepTracks] = useState<PrepTrackItem[]>(() => {
     const saved = localStorage.getItem('skillbridge_prep_tracks_v2');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try { return JSON.parse(saved); } catch {}
     }
     return [
       {

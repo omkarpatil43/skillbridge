@@ -46,7 +46,7 @@ PORT=5000
 
 # MongoDB Connection String (Atlas or Local)
 # Atlas Standard Non-SRV (Bypasses local DNS SRV blocking):
-MONGO_URI=mongodb://user:password@host1:27017,host2:27017,host3:27017/skillbridge?ssl=true&replicaSet=atlas-shard-0&authSource=admin&appName=Cluster0
+MONGO_URI=mongodb+srv://DB_USER:DB_PASSWORD@cluster0.example.mongodb.net/skillbridge?retryWrites=true&w=majority
 
 # JWT & Setup Security Keys
 AUTH_SECRET=your-long-random-secret-key-min-32-chars
@@ -57,7 +57,9 @@ GEMINI_API_KEY=your-google-gemini-api-key
 GEMINI_MODEL=gemini-3.6-flash
 ```
 
-> **Security Note:** Keep `.env` private. Never commit `.env` to source control or expose keys in frontend `VITE_` variables.
+> **MongoDB Atlas:** Create a database user (not an Atlas website login) and grant it `readWrite` on the `skillbridge` database. Use the connection string from Atlas **Connect → Drivers**, replacing its username and password placeholders. If the password contains special characters, URL-encode them. The server checks read access at startup and reports whether it is using MongoDB or the local fallback.
+>
+> **Security Note:** Keep `.env` private. Never commit `.env` to source control or expose keys in frontend `VITE_` variables. Rotate any API key or password that has been shared publicly.
 
 ---
 

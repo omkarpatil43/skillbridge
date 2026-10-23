@@ -1,5 +1,10 @@
 import { GoogleGenAI } from '@google/genai';
 
+export interface ChatTurn {
+  role: 'user' | 'model';
+  text: string;
+}
+
 export class GeminiServiceError extends Error {
   constructor(
     message: string,
@@ -11,7 +16,7 @@ export class GeminiServiceError extends Error {
   }
 }
 
-const describeProviderError = (error: unknown): GeminiServiceError => {
+const _describeProviderError = (error: unknown): GeminiServiceError => {
   const candidate = error as { status?: number; message?: string; error?: { message?: string; status?: string } };
   const status = candidate?.status || 0;
   const message = candidate?.error?.message || candidate?.message || 'Unknown Gemini provider error';
@@ -249,11 +254,12 @@ export const generateGeminiResponse = async (message: string, history: ChatTurn[
         { role: 'user' as const, parts: [{ text: context ? `${message}\n\nApplication context:\n${context}` : message }] },
       ];
 
-      const primaryModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+      const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
       const candidateModels = Array.from(new Set([
         primaryModel,
+        'gemini-3.6-flash',
+        'gemini-3.8-flash',
         'gemini-2.5-flash',
-        'gemini-3.5-flash',
         'gemini-flash-latest',
       ]));
 

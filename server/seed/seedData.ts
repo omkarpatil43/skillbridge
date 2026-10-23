@@ -1,4 +1,3 @@
-import { UserModel } from '../models/User.js';
 import { AcademicMaterialModel } from '../models/AcademicMaterial.js';
 import { SkillResourceModel } from '../models/SkillResource.js';
 import { ClubModel } from '../models/Club.js';
@@ -7,7 +6,6 @@ import { PlacementModel } from '../models/Placement.js';
 import { ScholarshipModel } from '../models/Scholarship.js';
 
 import {
-  INITIAL_USERS,
   INITIAL_ACADEMIC_MATERIALS,
   INITIAL_SKILL_RESOURCES,
   INITIAL_CLUBS,
@@ -18,17 +16,6 @@ import {
 
 export const seedDatabaseIfEmpty = async () => {
   try {
-    const userCount = await UserModel.countDocuments();
-    if (userCount === 0) {
-      console.log('🌱 Seeding initial Users into MongoDB...');
-      const nonAdminUsers = INITIAL_USERS.filter(
-        (u) => u.role !== 'college_admin' && u.role !== 'club_admin' && (u.role as string) !== 'admin'
-      );
-      await UserModel.insertMany(nonAdminUsers);
-    }
-
-    // College administrators are intentionally never created from a default/demo password.
-
     const academicCount = await AcademicMaterialModel.countDocuments();
     if (academicCount === 0) {
       console.log('ðŸŒ± Seeding Academic Study Materials into MongoDB...');

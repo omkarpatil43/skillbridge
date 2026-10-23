@@ -17,18 +17,14 @@ import { db } from '../db.js';
 import type { UserRole, StudentLevel, VerificationStatus } from '../../src/types/index.js';
 
 export const authRouter = Router();
+const DEMO_USER_EMAILS = ['student@pict.edu', 'senior@pict.edu', 'clublead@pict.edu'];
+const DEMO_USER_EMAIL_SET = new Set(DEMO_USER_EMAILS);
+
+const isDemoUser = (user: { id?: string; email?: string }) =>
+  ['u-1', 'u-2', 'u-3'].includes(user.id || '') ||
+  DEMO_USER_EMAIL_SET.has(user.email?.trim().toLowerCase() || '');
 
 // ── Resilient User Repository Helpers (Dual-Mode: MongoDB + Local Persistent Store) ──
-
-const normalizeDemoEmail = (email?: string): string => {
-  if (!email) return '';
-  const e = email.trim().toLowerCase();
-  if (e === 'aarav.24cs042@pict.edu' || e === 'aarav.24cs042@college.edu.in') return 'student@pict.edu';
-  if (e === 'priya.22cs015@pict.edu' || e === 'priya.22cs015@college.edu.in') return 'senior@pict.edu';
-  if (e === 'rohan.codecraft@pict.edu' || e === 'rohan.codecraft@college.edu.in') return 'clublead@pict.edu';
-  if (e === 'dean.academics@pict.edu' || e === 'dean.academics@college.edu.in') return 'admin@pict.edu';
-  return e;
-};
 
 export const findUserSafe = async (filter: { id?: string; email?: string; rollNo?: string; $or?: Array<{ email?: string; rollNo?: string }> }): Promise<any> => {
   try {
@@ -42,8 +38,7 @@ export const findUserSafe = async (filter: { id?: string; email?: string; rollNo
     for (const cond of filter.$or) {
       if (cond.email) {
         const clean = cond.email.toLowerCase();
-        const alias = normalizeDemoEmail(cond.email);
-        const found = db.findUser(u => u.email.toLowerCase() === clean || u.email.toLowerCase() === alias);
+        const found = db.findUser(u => u.email.toLowerCase() === clean);
         if (found) return found;
       }
       if (cond.rollNo) {
@@ -59,8 +54,7 @@ export const findUserSafe = async (filter: { id?: string; email?: string; rollNo
   }
   if (filter.email) {
     const clean = filter.email.toLowerCase();
-    const alias = normalizeDemoEmail(filter.email);
-    const found = db.findUser(u => u.email.toLowerCase() === clean || u.email.toLowerCase() === alias);
+    const found = db.findUser(u => u.email.toLowerCase() === clean);
     if (found) return found;
   }
   if (filter.rollNo) {
@@ -133,7 +127,7 @@ const requireAdmin = async (req: Request, res: Response, next: NextFunction) => 
     }
 
     const user = await findUserSafe({ id: verified.userId });
-    if (!user || user.role !== 'college_admin' || user.adminStatus !== 'Active') {
+    if (!user || isDemoUser(user) || user.role !== 'college_admin' || user.adminStatus !== 'Active') {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
@@ -161,7 +155,7 @@ const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
     }
 
     const user = await findUserSafe({ id: verified.userId });
-    if (!user) {
+    if (!user || isDemoUser(user)) {
       return res.status(404).json({ error: 'User not found' });
     }
 
@@ -189,7 +183,7 @@ export const requireVerifiedSeniorOrAdmin = async (req: Request, res: Response, 
     }
 
     const user = await findUserSafe({ id: verified.userId });
-    if (!user) {
+    if (!user || isDemoUser(user)) {
       return res.status(404).json({ error: 'User profile not found.' });
     }
 
@@ -304,7 +298,8 @@ authRouter.post(
       };
 
       try {
-        analysis = await analyzeIdCard(fileBuffer);
+        const result = await analyzeIdCard(fileBuffer);
+        analysis = { ...result, rawText: result.rawText ?? '' };
       } catch (ocrErr) {
         console.warn('OCR processing error (will attempt fallback or manual pending):', ocrErr);
       }
@@ -586,6 +581,12 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
     const cleanEmail = String(email).trim().toLowerCase();
     const cleanRoll = rollNo ? String(rollNo).trim().toUpperCase() : '';
 
+    if (DEMO_USER_EMAIL_SET.has(cleanEmail)) {
+      return res.status(401).json({
+        error: 'Invalid credentials. Please verify your email, roll number, and password.',
+      });
+    }
+
     // Admins use the same endpoint, but do not have a student roll number.
     const user = await findUserSafe(
       cleanRoll ? { $or: [{ email: cleanEmail, rollNo: cleanRoll }, { email: cleanEmail }] } : { email: cleanEmail }
@@ -611,13 +612,7 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
       });
     }
 
-    // Check password (with support for legacy/seed demo accounts if passwordHash is not present)
-    let isPasswordValid = false;
-    if (user.passwordHash) {
-      isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-    } else {
-      isPasswordValid = true; // Seed demo account without passwordHash configured
-    }
+    const isPasswordValid = !!user.passwordHash && await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
       const attempts = (user.loginAttempts || 0) + 1;
@@ -682,7 +677,10 @@ authRouter.get('/admin/pending', requireAdmin, async (req: Request, res: Respons
       } else {
         filter.verificationStatus = { $in: ['Pending', 'Rejected'] };
       }
-      pendingUsers = await UserModel.find(filter).sort({ createdAt: -1 });
+      pendingUsers = await UserModel.find({
+        ...filter,
+        email: { $nin: DEMO_USER_EMAILS },
+      }).sort({ createdAt: -1 });
     } catch {
       // MongoDB query failed, fall back to persistent local store
     }
@@ -785,14 +783,14 @@ authRouter.get('/users', async (_req: Request, res: Response) => {
   try {
     let users: any[] = [];
     try {
-      users = await UserModel.find().sort({ reputation: -1 });
+      users = await UserModel.find({ email: { $nin: DEMO_USER_EMAILS } }).sort({ reputation: -1 });
     } catch {
       // fallback
     }
     if (!users || users.length === 0) {
       users = db.getUsers();
     }
-    return res.json(users);
+    return res.json(users.filter(user => !isDemoUser(user)));
   } catch (error) {
     console.error('Error in /api/auth/users:', error);
     return res.status(500).json({ error: 'Internal server error' });
@@ -807,7 +805,7 @@ authRouter.get('/users', async (_req: Request, res: Response) => {
  */
 authRouter.post('/signup-club-admin', signupLimiter, async (req: Request, res: Response) => {
   try {
-    const { email, name, password, clubName, phone } = req.body;
+    const { email, name, password, clubName } = req.body;
 
     if (!email || !name || !password || !clubName) {
       return res.status(400).json({ error: 'Email, name, password, and club name are required.' });
@@ -869,4 +867,3 @@ authRouter.post('/signup-club-admin', signupLimiter, async (req: Request, res: R
     return res.status(500).json({ error: 'Club admin registration failed. Please try again.' });
   }
 });
-
