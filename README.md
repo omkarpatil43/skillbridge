@@ -1,7 +1,6 @@
 # 🎓 SkillBridge — Modern Campus Collaboration & Learning Platform
 
-Repository: [https://github.com/nikhilpawdepict-eng/SkillBridge](https://github.com/nikhilpawdepict-eng/SkillBridge)
-
+Repository:[(https://github.com/omkarpatil43/skillbridge)]
 SkillBridge is an all-in-one engineering college ecosystem connecting freshers, senior mentors, faculty admins, and campus clubs. It integrates academic study materials, industry skill tracks, peer doubt solving, campus chat & file sharing, AI-assisted mentoring, placement & scholarship roadmaps, and an automated ID verification pipeline.
 
 ---
