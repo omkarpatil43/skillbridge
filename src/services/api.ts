@@ -156,17 +156,24 @@ export const api = {
     return await res.json();
   },
 
+  
   addAcademicMaterial: async (mat: Omit<AcademicMaterial, 'id' | 'dateAdded' | 'downloadsCount'>): Promise<AcademicMaterial> => {
     const res = await fetch(`${API_BASE}/academic`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
       body: JSON.stringify(mat),
     });
     return await res.json();
   },
 
   removeAcademicMaterial: async (id: string): Promise<{ success: boolean }> => {
-    const res = await fetch(`${API_BASE}/academic/${id}`, { method: 'DELETE' });
+    const res = await fetch(`${API_BASE}/academic/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
     return await res.json();
   },
 
@@ -360,28 +367,48 @@ removeSkillResource: async (id: string): Promise<{ success: boolean }> => {
     return await res.json();
   },
 
-  addCompany: async (company: Omit<CompanyPlacementInfo, 'id'>): Promise<CompanyPlacementInfo> => {
-    const res = await fetch(`${API_BASE}/placements`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(company),
-    });
-    return await res.json();
-  },
+  
+addCompany: async (company: Omit<CompanyPlacementInfo, 'id'>): Promise<CompanyPlacementInfo> => {
+  const res = await fetch(`${API_BASE}/placements`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify(company),
+  });
+  return await handleJsonResponse<CompanyPlacementInfo>(
+    res,
+    'Failed to add company'
+  );
+},
 
-  updateCompany: async (id: string, company: Partial<CompanyPlacementInfo>): Promise<CompanyPlacementInfo> => {
-    const res = await fetch(`${API_BASE}/placements/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(company),
-    });
-    return handleJsonResponse(res, 'Failed to update company');
-  },
+updateCompany: async (id: string, company: Partial<CompanyPlacementInfo>): Promise<CompanyPlacementInfo> => {
+  const res = await fetch(`${API_BASE}/placements/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify(company),
+  });
+  return await handleJsonResponse<CompanyPlacementInfo>(
+    res,
+    'Failed to update company'
+  );
+},
 
-  removeCompany: async (id: string): Promise<{ success: boolean }> => {
-    const res = await fetch(`${API_BASE}/placements/${id}`, { method: 'DELETE' });
-    return await res.json();
-  },
+removeCompany: async (id: string): Promise<{ success: boolean }> => {
+  const res = await fetch(`${API_BASE}/placements/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  return await handleJsonResponse<{ success: boolean }>(
+    res,
+    'Failed to remove company'
+  );
+},
+
 
   // Scholarships
   getScholarships: async (): Promise<Scholarship[]> => {
@@ -403,10 +430,19 @@ removeSkillResource: async (id: string): Promise<{ success: boolean }> => {
   },
 
 
-  removeScholarship: async (id: string): Promise<{ success: boolean }> => {
-    const res = await fetch(`${API_BASE}/scholarships/${id}`, { method: 'DELETE' });
-    return await res.json();
-  },
+  
+removeScholarship: async (id: string): Promise<{ success: boolean }> => {
+  const res = await fetch(`${API_BASE}/scholarships/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+
+  return await handleJsonResponse<{ success: boolean }>(
+    res,
+    'Failed to remove scholarship'
+  );
+},
+
 
   // Initial Admin Setup Wizard
   getSetupStatus: async (): Promise<{ hasAdmin: boolean }> => {
