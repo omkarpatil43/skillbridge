@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { SkillResourceModel } from '../models/SkillResource.js';
-import { db } from '../db.js';
 import { requireVerifiedSeniorOrAdmin } from './authRoutes.js';
 
 export const skillRouter = Router();
 
 // GET /api/skills (with filters for category, level, type, search)
+
 skillRouter.get('/', async (req: Request, res: Response) => {
   try {
     const { category, level, type, search } = req.query;
@@ -29,32 +29,32 @@ skillRouter.get('/', async (req: Request, res: Response) => {
       ];
     }
 
-    try {
-      const skills = await SkillResourceModel.find(query).sort({ rating: -1, createdAt: -1 });
-      if (skills && skills.length > 0) return res.json(skills);
-    } catch {
-      // MongoDB query failed, fall back to persistent local store
-    }
+    const skills = await SkillResourceModel.find(query)
+      .sort({ rating: -1, createdAt: -1 });
 
-    const localSkills = db.getSkillResources({
-      category: category as string,
-      level: level as string,
-      type: type as string,
-      search: search as string,
-    });
-    return res.json(localSkills);
+    return res.json(skills);
   } catch (error) {
-    console.error('Error fetching skill resources:', error);
-    return res.json(db.getSkillResources());
+    console.error('Error fetching skill resources from MongoDB:', error);
+    return res.status(500).json({
+      error: 'Failed to fetch skill resources from database',
+    });
   }
 });
 
+
 // POST /api/skills (Add skill resource / roadmap)
+
 skillRouter.post('/', requireVerifiedSeniorOrAdmin, async (req: Request, res: Response) => {
   try {
-    const { title, category, type, level, duration, link, description, authorName, authorRole, tags } = req.body;
+    const {
+      title, category, type, level, duration, link,
+      description, authorName, authorRole, tags,
+    } = req.body;
+
     if (!title || !link) {
-      return res.status(400).json({ error: 'Title and link are required' });
+      return res.status(400).json({
+        error: 'Title and link are required',
+      });
     }
 
     const newSkill = {
@@ -73,33 +73,40 @@ skillRouter.post('/', requireVerifiedSeniorOrAdmin, async (req: Request, res: Re
       dateAdded: new Date().toISOString().split('T')[0],
     };
 
-    let doc: any = null;
-    try {
-      doc = await SkillResourceModel.create(newSkill);
-    } catch {
-      // fallback
-    }
-    const localSaved = db.addSkillResource(newSkill as any);
+    const savedSkill = await SkillResourceModel.create(newSkill);
 
-    return res.status(201).json(doc || localSaved);
+    return res.status(201).json(savedSkill);
   } catch (error) {
-    console.error('Error creating skill resource:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error saving skill resource to MongoDB:', error);
+    return res.status(500).json({
+      error: 'Failed to save skill resource to database',
+    });
   }
 });
 
+
 // DELETE /api/skills/:id
+
 skillRouter.delete('/:id', requireVerifiedSeniorOrAdmin, async (req: Request, res: Response) => {
   try {
-    try {
-      await SkillResourceModel.findOneAndDelete({ id: req.params.id });
-    } catch {
-      // fallback
+    const deletedSkill = await SkillResourceModel.findOneAndDelete({
+      id: req.params.id,
+    });
+
+    if (!deletedSkill) {
+      return res.status(404).json({
+        error: 'Skill resource not found in database',
+      });
     }
-    db.removeSkillResource(req.params.id);
-    return res.json({ success: true, message: 'Skill resource removed' });
+
+    return res.json({
+      success: true,
+      message: 'Skill resource removed',
+    });
   } catch (error) {
-    console.error('Error deleting skill resource:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error deleting skill resource from MongoDB:', error);
+    return res.status(500).json({
+      error: 'Failed to delete skill resource from database',
+    });
   }
 });

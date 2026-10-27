@@ -177,23 +177,47 @@ export const api = {
 
   // Skills
   getSkillResources: async (): Promise<SkillResource[]> => {
-    const res = await fetch(`${API_BASE}/skills`);
-    return await res.json();
-  },
+  const res = await fetch(`${API_BASE}/skills`);
 
-  addSkillResource: async (skill: Omit<SkillResource, 'id' | 'dateAdded' | 'rating'>): Promise<SkillResource> => {
-    const res = await fetch(`${API_BASE}/skills`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(skill),
-    });
-    return await res.json();
-  },
+  return await handleJsonResponse<SkillResource[]>(
+    res,
+    'Failed to fetch skill resources'
+  );
+},
 
-  removeSkillResource: async (id: string): Promise<{ success: boolean }> => {
-    const res = await fetch(`${API_BASE}/skills/${id}`, { method: 'DELETE' });
-    return await res.json();
-  },
+ 
+addSkillResource: async (
+  resource: Omit<SkillResource, 'id' | 'dateAdded' | 'rating'>
+): Promise<SkillResource> => {
+  const res = await fetch(`${API_BASE}/skills`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify(resource),
+  });
+
+  return await handleJsonResponse<SkillResource>(
+    res,
+    'Failed to add skill resource'
+  );
+},
+
+
+  
+removeSkillResource: async (id: string): Promise<{ success: boolean }> => {
+  const res = await fetch(`${API_BASE}/skills/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+
+  return await handleJsonResponse<{ success: boolean }>(
+    res,
+    'Failed to remove skill resource'
+  );
+},
+
 
   // Clubs
   getClubs: async (): Promise<Club[]> => {
