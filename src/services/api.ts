@@ -232,28 +232,46 @@ removeSkillResource: async (id: string): Promise<{ success: boolean }> => {
     return await res.json();
   },
 
-  addClub: async (club: Partial<Club>): Promise<Club> => {
-    const res = await fetch(`${API_BASE}/clubs`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(club),
-    });
-    return handleJsonResponse(res, 'Failed to create club');
-  },
+  
+addClub: async (club: Partial<Club>): Promise<Club> => {
+  const res = await fetch(`${API_BASE}/clubs`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify(club),
+  });
+  return handleJsonResponse<Club>(res, 'Failed to create club');
+},
 
-  updateClub: async (id: string, club: Partial<Club>): Promise<Club> => {
-    const res = await fetch(`${API_BASE}/clubs/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(club),
-    });
-    return handleJsonResponse(res, 'Failed to update club');
-  },
 
-  removeClub: async (id: string): Promise<{ success: boolean }> => {
-    const res = await fetch(`${API_BASE}/clubs/${id}`, { method: 'DELETE' });
-    return await res.json();
-  },
+  
+updateClub: async (id: string, club: Partial<Club>): Promise<Club> => {
+  const res = await fetch(`${API_BASE}/clubs/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify(club),
+  });
+  return handleJsonResponse<Club>(res, 'Failed to update club');
+},
+
+
+ 
+removeClub: async (id: string): Promise<{ success: boolean }> => {
+  const res = await fetch(`${API_BASE}/clubs/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  return handleJsonResponse<{ success: boolean }>(
+    res,
+    'Failed to remove club'
+  );
+},
+
 
   clubAdminSignup: async (data: { email: string; name: string; password: string; clubName: string; phone?: string }): Promise<{ success: boolean; message: string }> => {
     const res = await fetch(`${API_BASE}/auth/signup-club-admin`, {
@@ -264,53 +282,108 @@ removeSkillResource: async (id: string): Promise<{ success: boolean }> => {
     return handleJsonResponse(res, 'Club admin signup failed');
   },
 
-  addClubEvent: async (clubId: string, event: Omit<ClubEvent, 'id' | 'clubId' | 'registeredCount'>): Promise<ClubEvent> => {
-    const res = await fetch(`${API_BASE}/clubs/${clubId}/events`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(event),
-    });
-    return await res.json();
-  },
+  
+addClubEvent: async (
+  clubId: string,
+  event: Omit<ClubEvent, 'id' | 'clubId' | 'registeredCount'>
+): Promise<ClubEvent> => {
+  const res = await fetch(`${API_BASE}/clubs/${clubId}/events`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify(event),
+  });
+  return handleJsonResponse<ClubEvent>(res, 'Failed to add club event');
+},
 
-  removeClubEvent: async (eventId: string): Promise<{ success: boolean }> => {
-    const res = await fetch(`${API_BASE}/clubs/events/${eventId}`, { method: 'DELETE' });
-    return await res.json();
-  },
+  
+removeClubEvent: async (eventId: string): Promise<{ success: boolean }> => {
+  const res = await fetch(`${API_BASE}/clubs/events/${eventId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  return handleJsonResponse<{ success: boolean }>(
+    res,
+    'Failed to remove club event'
+  );
+},
 
-  registerForClub: async (reg: Omit<ClubRegistration, 'id' | 'appliedDate' | 'status'>): Promise<ClubRegistration> => {
-    const res = await fetch(`${API_BASE}/clubs/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(reg),
-    });
-    return await res.json();
-  },
+
+ 
+registerForClub: async (
+  reg: Omit<ClubRegistration, 'id' | 'appliedDate' | 'status'>
+): Promise<ClubRegistration> => {
+  const res = await fetch(`${API_BASE}/clubs/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify(reg),
+  });
+  return handleJsonResponse<ClubRegistration>(
+    res,
+    'Failed to register for club'
+  );
+},
+
 
   getClubRegistrations: async (): Promise<ClubRegistration[]> => {
     const res = await fetch(`${API_BASE}/clubs/registrations`);
     return await res.json();
   },
 
-  acceptClubRegistration: async (id: string): Promise<ClubRegistration> => {
-    const res = await fetch(`${API_BASE}/clubs/registrations/${id}/accept`, { method: 'PUT' });
-    return await res.json();
-  },
+acceptClubRegistration: async (id: string): Promise<ClubRegistration> => {
+  const res = await fetch(`${API_BASE}/clubs/registrations/${id}/accept`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+  });
+  return handleJsonResponse<ClubRegistration>(
+    res,
+    'Failed to accept club registration'
+  );
+},
 
-  rejectClubRegistration: async (id: string): Promise<ClubRegistration> => {
-    const res = await fetch(`${API_BASE}/clubs/registrations/${id}/reject`, { method: 'PUT' });
-    return await res.json();
-  },
 
-  removeClubRegistration: async (id: string): Promise<{ success: boolean }> => {
-    const res = await fetch(`${API_BASE}/clubs/registrations/${id}`, { method: 'DELETE' });
-    return await res.json();
-  },
+ 
+rejectClubRegistration: async (id: string): Promise<ClubRegistration> => {
+  const res = await fetch(`${API_BASE}/clubs/registrations/${id}/reject`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+  });
+  return handleJsonResponse<ClubRegistration>(
+    res,
+    'Failed to reject club registration'
+  );
+},
 
-  rsvpEvent: async (eventId: string): Promise<{ success: boolean }> => {
-    const res = await fetch(`${API_BASE}/clubs/events/${eventId}/rsvp`, { method: 'POST' });
-    return await res.json();
-  },
+ 
+removeClubRegistration: async (id: string): Promise<{ success: boolean }> => {
+  const res = await fetch(`${API_BASE}/clubs/registrations/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  return handleJsonResponse<{ success: boolean }>(
+    res,
+    'Failed to remove club registration'
+  );
+},
+
+
+
+rsvpEvent: async (eventId: string): Promise<{ success: boolean }> => {
+  const res = await fetch(`${API_BASE}/clubs/events/${eventId}/rsvp`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  return handleJsonResponse<{ success: boolean }>(
+    res,
+    'Failed to RSVP to club event'
+  );
+},
+
 
   // Doubts
   getDoubts: async (): Promise<DoubtQuestion[]> => {
