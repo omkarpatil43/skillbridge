@@ -14,6 +14,14 @@ import {
 
 const API_BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api`;
 
+const getAuthHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem('skillbridge_auth_token_v2');
+
+  return token
+    ? { Authorization: `Bearer ${token}` }
+    : {};
+};
+
 async function handleJsonResponse<T = any>(res: Response, defaultErrorMessage = 'Request failed'): Promise<T> {
   const text = await res.text();
   let data: any = null;
@@ -357,14 +365,19 @@ export const api = {
     return await res.json();
   },
 
+  
   addScholarship: async (scholarship: Omit<Scholarship, 'id'>): Promise<Scholarship> => {
     const res = await fetch(`${API_BASE}/scholarships`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
       body: JSON.stringify(scholarship),
     });
-    return await res.json();
+    return await handleJsonResponse<Scholarship>(res, 'Failed to add scholarship');
   },
+
 
   removeScholarship: async (id: string): Promise<{ success: boolean }> => {
     const res = await fetch(`${API_BASE}/scholarships/${id}`, { method: 'DELETE' });
