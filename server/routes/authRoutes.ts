@@ -666,39 +666,74 @@ authRouter.get('/me', requireAuth, async (req: Request, res: Response) => {
  * GET /api/auth/admin/pending
  * Returns pending and flagged accounts for faculty/admin review.
  */
+
+/**
+ * GET /api/auth/admin/pending
+ * Returns pending and flagged accounts for faculty/admin review.
+ */
 authRouter.get('/admin/pending', requireAdmin, async (req: Request, res: Response) => {
   try {
     const status = req.query.status as string;
     let pendingUsers: any[] = [];
+    let mongoQuerySucceeded = false;
+
     try {
       const filter: Record<string, unknown> = {};
+
       if (status && ['Pending', 'Verified', 'Rejected'].includes(status)) {
         filter.verificationStatus = status;
       } else {
         filter.verificationStatus = { $in: ['Pending', 'Rejected'] };
       }
+
       pendingUsers = await UserModel.find({
         ...filter,
         email: { $nin: DEMO_USER_EMAILS },
       }).sort({ createdAt: -1 });
-    } catch {
-      // MongoDB query failed, fall back to persistent local store
-    }
 
-    if (!pendingUsers || pendingUsers.length === 0) {
-      const allLocal = db.getUsers();
-      pendingUsers = allLocal.filter(u =>
-        u.verificationStatus === 'Pending' ||
-        u.verificationStatus === 'Rejected' ||
-        u.adminStatus === 'Pending' ||
-        (status && (u.verificationStatus === status || u.adminStatus === status))
+      // An empty array is a valid result, not a database failure.
+      mongoQuerySucceeded = true;
+    } catch (error) {
+      console.error(
+        'MongoDB query failed for /api/auth/admin/pending:',
+        error
       );
     }
 
-    return res.json({ success: true, count: pendingUsers.length, users: pendingUsers });
+    // Use the local store only when the MongoDB query actually fails.
+    if (!mongoQuerySucceeded) {
+      const demoEmails = new Set(
+        DEMO_USER_EMAILS.map(email => email.toLowerCase())
+      );
+
+      pendingUsers = db.getUsers().filter(u => {
+        const email = (u.email || '').toLowerCase();
+
+        if (demoEmails.has(email)) {
+          return false;
+        }
+
+        return (
+          u.verificationStatus === 'Pending' ||
+          u.verificationStatus === 'Rejected' ||
+          u.adminStatus === 'Pending' ||
+          (status &&
+            (u.verificationStatus === status ||
+              u.adminStatus === status))
+        );
+      });
+    }
+
+    return res.json({
+      success: true,
+      count: pendingUsers.length,
+      users: pendingUsers,
+    });
   } catch (error) {
     console.error('Error in /api/auth/admin/pending:', error);
-    return res.status(500).json({ error: 'Failed to fetch pending verifications' });
+    return res.status(500).json({
+      error: 'Failed to fetch pending verifications',
+    });
   }
 });
 
