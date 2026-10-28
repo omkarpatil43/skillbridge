@@ -1,32 +1,39 @@
 import { Router, Request, Response } from 'express';
 import { ClubModel } from '../models/Club.js';
 import { ClubRegistrationModel } from '../models/ClubRegistration.js';
-import { db } from '../db.js';
 
 export const clubRouter = Router();
 
-// GET /api/clubs
+
+ // GET /api/clubs
 clubRouter.get('/', async (_req: Request, res: Response) => {
   try {
     const clubs = await ClubModel.find().sort({ memberCount: -1 });
-    if (clubs && clubs.length > 0) return res.json(clubs);
+    return res.json(clubs);
   } catch (error) {
-    console.warn('MongoDB fetching clubs failed, using persistent local store:', error);
+    console.error('MongoDB fetching clubs failed:', error);
+    return res.status(500).json({
+      error: 'Failed to fetch clubs from the database',
+    });
   }
-  return res.json(db.getClubs());
 });
 
-// POST /api/clubs (Create new club)
+
+ // POST /api/clubs (Create new club)
 clubRouter.post('/', async (req: Request, res: Response) => {
   try {
     const data = req.body;
+
     if (!data.name || !data.category) {
-      return res.status(400).json({ error: 'Club name and category are required' });
+      return res.status(400).json({
+        error: 'Club name and category are required',
+      });
     }
+
     const newClubData = {
       id: `club-${Date.now()}`,
       name: data.name,
-      category: data.category || 'Technical',
+      category: data.category,
       tagline: data.tagline || '',
       description: data.description || '',
       logo: data.logo || 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=400&q=80',
@@ -41,106 +48,142 @@ clubRouter.post('/', async (req: Request, res: Response) => {
       events: [],
     };
 
-    db.addClub(newClubData as any);
-    try {
-      await ClubModel.create(newClubData);
-    } catch {
-      // ignore
-    }
-    return res.status(201).json(newClubData);
+    const newClub = await ClubModel.create(newClubData);
+
+    return res.status(201).json(newClub);
   } catch (error) {
-    console.error('Error creating club:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error creating club in MongoDB:', error);
+    return res.status(500).json({
+      error: 'Failed to create club in the database',
+    });
   }
 });
 
-// PUT /api/clubs/:id (Update existing club)
+
+
+ // PUT /api/clubs/:id (Update existing club)
 clubRouter.put('/:id', async (req: Request, res: Response) => {
   try {
-    const localUpdated = db.updateClub(req.params.id, req.body);
-    try {
-      await ClubModel.findOneAndUpdate(
-        { id: req.params.id },
-        req.body,
-        { new: true }
-      );
-    } catch {
-      // ignore
+    const { _id, __v, ...updates } = req.body;
+
+    const updatedClub = await ClubModel.findOneAndUpdate(
+      { id: req.params.id },
+      { $set: updates },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!updatedClub) {
+      return res.status(404).json({
+        error: 'Club not found',
+      });
     }
-    if (!localUpdated) {
-      return res.status(404).json({ error: 'Club not found' });
-    }
-    return res.json(localUpdated);
+
+    return res.status(200).json(updatedClub);
   } catch (error) {
-    console.error('Error updating club:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error updating club in MongoDB:', error);
+    return res.status(500).json({
+      error: 'Failed to update club in the database',
+    });
   }
 });
 
-// DELETE /api/clubs/:id (Delete a club and its registrations)
+
+
+ // DELETE /api/clubs/:id (Delete club)
 clubRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
-    db.removeClub(req.params.id);
-    try {
-      await ClubModel.findOneAndDelete({ id: req.params.id });
-      await ClubRegistrationModel.deleteMany({ clubId: req.params.id });
-    } catch {
-      // ignore
+    const deletedClub = await ClubModel.findOneAndDelete({
+      id: req.params.id,
+    });
+
+    if (!deletedClub) {
+      return res.status(404).json({
+        error: 'Club not found',
+      });
     }
-    return res.json({ success: true, message: `Club deleted successfully` });
+
+    await ClubRegistrationModel.deleteMany({
+      clubId: req.params.id,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Club and its registrations deleted successfully',
+    });
   } catch (error) {
-    console.error('Error deleting club:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error deleting club from MongoDB:', error);
+    return res.status(500).json({
+      error: 'Failed to delete club from the database',
+    });
   }
 });
 
-// POST /api/clubs/:id/events (Add event to a club)
+
+ // POST /api/clubs/:id/events (Add event to a club)
 clubRouter.post('/:id/events', async (req: Request, res: Response) => {
   try {
-    const { title, date, time, venue, description, bannerImage, registrationLink, tags } = req.body;
-    if (!title || !date || !venue) {
-      return res.status(400).json({ error: 'Title, date, and venue are mandatory' });
-    }
+    const data = req.body;
 
-    const club = await ClubModel.findOne({ id: req.params.id });
-    if (!club) {
-      return res.status(404).json({ error: 'Club not found' });
+    if (!data.title || !data.date || !data.venue) {
+      return res.status(400).json({
+        error: 'Event title, date and venue are required',
+      });
     }
 
     const newEvent = {
       id: `ev-${Date.now()}`,
       clubId: req.params.id,
-      title,
-      date,
-      time: time || '10:00 AM IST',
-      venue,
-      description: description || 'Campus club workshop/event.',
-      bannerImage: bannerImage || 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=800&q=80',
-      registrationLink,
+      title: data.title,
+      date: data.date,
+      time: data.time || '10:00 AM IST',
+      venue: data.venue,
+      description: data.description || '',
+      bannerImage: data.bannerImage || '',
+      registrationLink: data.registrationLink || '',
       registrationOpen: true,
       registeredCount: 0,
-      tags: tags || ['Event'],
+      tags: data.tags || ['Event'],
     };
 
-    club.events.unshift(newEvent);
-    await club.save();
+    const updatedClub = await ClubModel.findOneAndUpdate(
+      { id: req.params.id },
+      {
+        $push: {
+          events: {
+            $each: [newEvent],
+            $position: 0,
+          },
+        },
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!updatedClub) {
+      return res.status(404).json({
+        error: 'Club not found',
+      });
+    }
 
     return res.status(201).json(newEvent);
   } catch (error) {
-    console.error('Error adding club event:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error adding club event to MongoDB:', error);
+    return res.status(500).json({
+      error: 'Failed to add event to the database',
+    });
   }
 });
 
-// POST /api/clubs/register (Apply for club membership)
+
+ // POST /api/clubs/register (Register for a club)
 clubRouter.post('/register', async (req: Request, res: Response) => {
   try {
-    const { clubId, clubName, studentName, rollNo, email, branch, year, interestReason, phone, skills, experience, portfolioLink } = req.body;
-    if (!clubId || !studentName || !rollNo || !interestReason || !phone || !skills || !experience) {
-      return res.status(400).json({ error: 'Incomplete application data' });
-    }
-
-    const regData = {
+    const {
       clubId,
       clubName,
       studentName,
@@ -153,137 +196,233 @@ clubRouter.post('/register', async (req: Request, res: Response) => {
       skills,
       experience,
       portfolioLink,
-    };
+    } = req.body;
 
-    const localSaved = db.registerForClub(regData);
+  if (
+  !clubId ||
+  !studentName ||
+  !rollNo ||
+  !email ||
+  !branch ||
+  !year ||
+  !interestReason ||
+  !phone ||
+  !skills ||
+  !experience
+) {
+  return res.status(400).json({
+    error: 'Please provide all required registration fields',
+  });
+}
 
-    try {
-      await ClubRegistrationModel.create({
-        ...localSaved,
-        id: localSaved.id,
+    const club = await ClubModel.findOne({ id: clubId });
+
+    if (!club) {
+      return res.status(404).json({
+        error: 'Club not found',
       });
-    } catch {
-      // MongoDB offline/auth failure - local storage is persisted
     }
 
-    return res.status(201).json(localSaved);
+    const registration = await ClubRegistrationModel.create({
+      id: `registration-${Date.now()}`,
+      clubId,
+      clubName: clubName || club.name,
+      studentName,
+      rollNo,
+      email,
+      branch,
+      year,
+      interestReason,
+      phone,
+      skills,
+      experience,
+      portfolioLink,
+      status: 'pending',
+    });
+
+    return res.status(201).json(registration);
   } catch (error) {
-    console.error('Error registering for club:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error creating club registration in MongoDB:', error);
+    return res.status(500).json({
+      error: 'Failed to create club registration in the database',
+    });
   }
 });
 
-// GET /api/clubs/registrations
+ // GET /api/clubs/registrations (Fetch registrations)
 clubRouter.get('/registrations', async (_req: Request, res: Response) => {
   try {
-    try {
-      const registrations = await ClubRegistrationModel.find().sort({ createdAt: -1 });
-      if (registrations && registrations.length > 0) return res.json(registrations);
-    } catch {
-      // MongoDB offline/auth failure
-    }
-    const localRegs = db.getClubRegistrations();
-    return res.json(localRegs);
+    const registrations = await ClubRegistrationModel.find().sort({
+      createdAt: -1,
+    });
+
+    return res.status(200).json(registrations);
   } catch (error) {
-    console.error('Error fetching club registrations:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error fetching club registrations from MongoDB:', error);
+    return res.status(500).json({
+      error: 'Failed to fetch club registrations from the database',
+    });
   }
 });
 
-// DELETE /api/clubs/events/:id
+
+ // DELETE /api/clubs/events/:id (Delete event)
 clubRouter.delete('/events/:id', async (req: Request, res: Response) => {
   try {
-    const eventId = req.params.id;
-    db.removeClubEvent(eventId);
-    try {
-      const club = await ClubModel.findOne({ 'events.id': eventId });
-      if (club) {
-        club.events = club.events.filter(ev => ev.id !== eventId);
-        await club.save();
-      }
-    } catch {
-      // ignore
-    }
-    return res.json({ success: true, message: 'Event removed' });
-  } catch (error) {
-    console.error('Error deleting club event:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// DELETE /api/clubs/registrations/:id
-clubRouter.delete('/registrations/:id', async (req: Request, res: Response) => {
-  try {
-    db.removeClubRegistration(req.params.id);
-    try {
-      await ClubRegistrationModel.findOneAndDelete({ id: req.params.id });
-    } catch {
-      // ignore
-    }
-    return res.json({ success: true, message: 'Registration removed' });
-  } catch (error) {
-    console.error('Error deleting club registration:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// PUT /api/clubs/registrations/:id/accept
-clubRouter.put('/registrations/:id/accept', async (req: Request, res: Response) => {
-  try {
-    const localUpdated = db.acceptClubRegistration(req.params.id);
-    try {
-      await ClubRegistrationModel.findOneAndUpdate(
-        { id: req.params.id },
-        { status: 'accepted' },
-        { new: true }
-      );
-    } catch {
-      // ignore
-    }
-    return res.json(localUpdated || { id: req.params.id, status: 'accepted' });
-  } catch (error) {
-    console.error('Error accepting registration:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-clubRouter.put('/registrations/:id/reject', async (req: Request, res: Response) => {
-  try {
-    const localUpdated = db.rejectClubRegistration(req.params.id);
-    try {
-      await ClubRegistrationModel.findOneAndUpdate(
-        { id: req.params.id },
-        { status: 'reviewed' },
-        { new: true }
-      );
-    } catch {
-      // ignore
-    }
-    return res.json(localUpdated || { id: req.params.id, status: 'reviewed' });
-  } catch (error) {
-    console.error('Error rejecting registration:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-
-// POST /api/clubs/events/:id/rsvp
-clubRouter.post('/events/:id/rsvp', async (req: Request, res: Response) => {
-  try {
-    const eventId = req.params.id;
-    const updated = await ClubModel.findOneAndUpdate(
-      { 'events.id': eventId },
-      { $inc: { 'events.$.registeredCount': 1 } },
+    const deletedEvent = await ClubModel.findOneAndUpdate(
+      { 'events.id': req.params.id },
+      {
+        $pull: {
+          events: { id: req.params.id },
+        },
+      },
       { new: true }
     );
 
-    if (!updated) {
-      return res.status(404).json({ error: 'Event not found' });
+    if (!deletedEvent) {
+      return res.status(404).json({
+        error: 'Event not found',
+      });
     }
 
-    return res.json({ success: true, message: 'RSVP registered successfully' });
+    return res.status(200).json({
+      success: true,
+      message: 'Event deleted successfully',
+    });
   } catch (error) {
-    console.error('Error in event RSVP:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error deleting club event from MongoDB:', error);
+    return res.status(500).json({
+      error: 'Failed to delete event from the database',
+    });
   }
 });
+
+
+ // DELETE /api/clubs/registrations/:id
+clubRouter.delete('/registrations/:id', async (req: Request, res: Response) => {
+  try {
+    const deletedRegistration = await ClubRegistrationModel.findOneAndDelete({
+      id: req.params.id,
+    });
+
+    if (!deletedRegistration) {
+      return res.status(404).json({
+        error: 'Registration not found',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Registration deleted successfully',
+    });
+  } catch (error) {
+    console.error('Error deleting club registration from MongoDB:', error);
+    return res.status(500).json({
+      error: 'Failed to delete registration from the database',
+    });
+  }
+});
+
+
+
+ // PUT /api/clubs/registrations/:id/accept
+clubRouter.put('/registrations/:id/accept', async (req: Request, res: Response) => {
+  try {
+    const registration = await ClubRegistrationModel.findOneAndUpdate(
+      { id: req.params.id },
+      { $set: { status: 'accepted' } },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!registration) {
+      return res.status(404).json({
+        error: 'Registration not found',
+      });
+    }
+
+    return res.status(200).json(registration);
+  } catch (error) {
+    console.error('Error accepting club registration:', error);
+    return res.status(500).json({
+      error: 'Failed to accept registration in the database',
+    });
+  }
+});
+
+
+
+ // PUT /api/clubs/registrations/:id/reject
+clubRouter.put('/registrations/:id/reject', async (req: Request, res: Response) => {
+  try {
+    const registration = await ClubRegistrationModel.findOneAndUpdate(
+      { id: req.params.id },
+      { $set: { status: 'rejected' } },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!registration) {
+      return res.status(404).json({
+        error: 'Registration not found',
+      });
+    }
+
+    return res.status(200).json(registration);
+  } catch (error) {
+    console.error('Error rejecting club registration:', error);
+    return res.status(500).json({
+      error: 'Failed to reject registration in the database',
+    });
+  }
+});
+
+
+
+
+ // POST /api/clubs/events/:id/rsvp
+clubRouter.post('/events/:id/rsvp', async (req: Request, res: Response) => {
+  try {
+    const updatedClub = await ClubModel.findOneAndUpdate(
+      {
+        events: {
+          $elemMatch: {
+            id: req.params.id,
+            registrationOpen: { $ne: false },
+          },
+        },
+      },
+      {
+        $inc: {
+          'events.$.registeredCount': 1,
+        },
+      },
+      { new: true }
+    );
+
+    if (!updatedClub) {
+      return res.status(404).json({
+        error: 'Event not found or registration is closed',
+      });
+    }
+
+    const event = updatedClub.events.find(
+      (item: any) => item.id === req.params.id
+    );
+
+    return res.status(200).json({
+      success: true,
+      event,
+    });
+  } catch (error) {
+    console.error('Error registering RSVP in MongoDB:', error);
+    return res.status(500).json({
+      error: 'Failed to register RSVP in the database',
+    });
+  }
+});
+
