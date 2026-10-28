@@ -1,35 +1,46 @@
 import { Router, Request, Response } from 'express';
 import { DoubtModel } from '../models/Doubt.js';
-import { db } from '../db.js';
 
 export const doubtRouter = Router();
 
 // GET /api/doubts
+
 doubtRouter.get('/', async (_req: Request, res: Response) => {
   try {
-    try {
-      const doubts = await DoubtModel.find().sort({ createdAt: -1 });
-      if (doubts && doubts.length > 0) return res.json(doubts);
-    } catch {
-      // MongoDB query failed, fall back to persistent local store
-    }
-    return res.json(db.getDoubts());
+    const doubts = await DoubtModel.find().sort({ createdAt: -1 });
+    return res.json(doubts);
   } catch (error) {
-    console.error('Error fetching doubts:', error);
-    return res.json(db.getDoubts());
+    console.error('Error fetching doubts from MongoDB:', error);
+    return res.status(500).json({
+      error: 'Failed to fetch doubts from the database',
+    });
   }
 });
 
 // POST /api/doubts (Ask new doubt)
+
 doubtRouter.post('/', async (req: Request, res: Response) => {
   try {
-    const { title, description, codeSnippet, branch, subject, authorName, authorRole, authorRollNo, tags } = req.body;
+    const {
+      title,
+      description,
+      codeSnippet,
+      branch,
+      subject,
+      authorName,
+      authorRole,
+      authorRollNo,
+      tags,
+    } = req.body;
+
     if (!title || !description || !subject) {
-      return res.status(400).json({ error: 'Title, description, and subject are required' });
+      return res.status(400).json({
+        error: 'Title, description, and subject are required',
+      });
     }
 
     const doubtData = {
-      id: `d-${Date.now()}`,
+      id: `d-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       title,
       description,
       codeSnippet,
@@ -38,197 +49,216 @@ doubtRouter.post('/', async (req: Request, res: Response) => {
       authorName: authorName || 'Student',
       authorRole: authorRole || 'student',
       authorRollNo: authorRollNo || '24CS000',
-      tags: tags || [subject, 'Doubt'],
+      tags: Array.isArray(tags) ? tags : [subject, 'Doubt'],
       date: new Date().toISOString().split('T')[0],
       upvotes: 0,
       solved: false,
       replies: [],
     };
 
-    let doc: any = null;
-    try {
-      doc = await DoubtModel.create(doubtData);
-    } catch {
-      // MongoDB unavailable — fall through to local store
-    }
-    const localDoubt = db.postDoubt(doubtData);
-    return res.status(201).json(doc || localDoubt);
+    const savedDoubt = await DoubtModel.create(doubtData);
+    return res.status(201).json(savedDoubt);
   } catch (error) {
-    console.error('Error creating doubt:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error creating doubt in MongoDB:', error);
+    return res.status(500).json({
+      error: 'Failed to save doubt to the database',
+    });
   }
 });
 
 // POST /api/doubts/:id/replies (Reply to doubt)
+
 doubtRouter.post('/:id/replies', async (req: Request, res: Response) => {
   try {
     const { authorName, authorRole, authorRollNo, content, codeSnippet } = req.body;
-    if (!content) {
+
+    if (typeof content !== 'string' || !content.trim()) {
       return res.status(400).json({ error: 'Content is required' });
     }
 
     const isSenior = authorRole === 'senior' || authorRole === 'admin';
+
     const reply = {
-      id: `rep-${Date.now()}`,
+      id: `rep-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       authorName: authorName || 'Peer Scholar',
       authorRole: authorRole || 'student',
       authorRollNo: authorRollNo || '24CS000',
-      content,
+      content: content.trim(),
       codeSnippet,
       date: new Date().toISOString().split('T')[0],
       isSeniorVerified: isSenior,
       upvotes: 0,
     };
 
-    const updateQuery: Record<string, any> = {
+    const update: Record<string, any> = {
       $push: { replies: reply },
     };
+
     if (isSenior) {
-      updateQuery.$set = { solved: true };
+      update.$set = { solved: true };
     }
 
-    let saved = false;
-    try {
-      const updated = await DoubtModel.findOneAndUpdate(
-        { id: req.params.id },
-        updateQuery,
-        { new: true }
-      );
-      if (updated) saved = true;
-    } catch {
-      // fallback to local store
-    }
+    const updatedDoubt = await DoubtModel.findOneAndUpdate(
+      { id: req.params.id },
+      update,
+      { new: true, runValidators: true }
+    );
 
-    if (!saved) {
-      const localReply = db.replyToDoubt(req.params.id, reply);
-      if (!localReply) {
-        return res.status(404).json({ error: 'Doubt not found' });
-      }
+    if (!updatedDoubt) {
+      return res.status(404).json({ error: 'Doubt not found' });
     }
 
     return res.status(201).json(reply);
   } catch (error) {
-    console.error('Error posting doubt reply:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error saving doubt reply:', error);
+    return res.status(500).json({
+      error: 'Failed to save reply to the database',
+    });
   }
 });
 
 // PUT /api/doubts/:id/replies/:replyId/verify (Senior verification)
+
 doubtRouter.put('/:id/replies/:replyId/verify', async (req: Request, res: Response) => {
   try {
     const { id, replyId } = req.params;
     const doubt = await DoubtModel.findOne({ id });
+
     if (!doubt) {
       return res.status(404).json({ error: 'Doubt not found' });
     }
 
-    const reply = doubt.replies.find(r => r.id === replyId);
+    const reply = doubt.replies.find((item) => item.id === replyId);
+
     if (!reply) {
       return res.status(404).json({ error: 'Reply not found' });
     }
 
     reply.isSeniorVerified = true;
     doubt.solved = true;
+
     await doubt.save();
 
-    return res.json({ success: true, message: 'Solution marked as Senior Verified' });
+    return res.json({
+      success: true,
+      message: 'Solution marked as Senior Verified',
+    });
   } catch (error) {
-    console.error('Error verifying reply:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error verifying doubt reply:', error);
+    return res.status(500).json({
+      error: 'Failed to verify reply in the database',
+    });
   }
 });
 
+
 // DELETE /api/doubts/:id
+
 doubtRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
-    try {
-      await DoubtModel.findOneAndDelete({ id: req.params.id });
-    } catch {
-      // fallback
+    const deleted = await DoubtModel.findOneAndDelete({
+      id: req.params.id,
+    });
+
+    if (!deleted) {
+      return res.status(404).json({ error: 'Doubt not found' });
     }
-    db.removeDoubt(req.params.id);
+
     return res.json({ success: true, message: 'Doubt removed' });
   } catch (error) {
     console.error('Error deleting doubt:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({
+      error: 'Failed to delete doubt from the database',
+    });
   }
 });
 
+
 // DELETE /api/doubts/:id/replies/:replyId
+
 doubtRouter.delete('/:id/replies/:replyId', async (req: Request, res: Response) => {
   try {
     const { id, replyId } = req.params;
     const doubt = await DoubtModel.findOne({ id });
+
     if (!doubt) {
       return res.status(404).json({ error: 'Doubt not found' });
     }
-    const replyIndex = doubt.replies.findIndex(r => r.id === replyId);
+
+    const replyIndex = doubt.replies.findIndex(
+      (item) => item.id === replyId
+    );
+
     if (replyIndex === -1) {
       return res.status(404).json({ error: 'Reply not found' });
     }
+
     doubt.replies.splice(replyIndex, 1);
     await doubt.save();
+
     return res.json({ success: true, message: 'Reply removed' });
   } catch (error) {
-    console.error('Error deleting reply:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error deleting doubt reply:', error);
+    return res.status(500).json({
+      error: 'Failed to delete reply from the database',
+    });
   }
 });
+
 
 // POST /api/doubts/:id/upvote
+
 doubtRouter.post('/:id/upvote', async (req: Request, res: Response) => {
   try {
-    let upvotes: number | null = null;
-    try {
-      const updated = await DoubtModel.findOneAndUpdate(
-        { id: req.params.id },
-        { $inc: { upvotes: 1 } },
-        { new: true }
-      );
-      if (updated) upvotes = updated.upvotes;
-    } catch {
-      // fallback
-    }
-    if (upvotes === null) {
-      upvotes = db.upvoteDoubt(req.params.id);
-    }
-    if (upvotes === null) {
+    const updated = await DoubtModel.findOneAndUpdate(
+      { id: req.params.id },
+      { $inc: { upvotes: 1 } },
+      { new: true, runValidators: true }
+    );
+
+    if (!updated) {
       return res.status(404).json({ error: 'Doubt not found' });
     }
-    return res.json({ upvotes });
+
+    return res.json({ upvotes: updated.upvotes });
   } catch (error) {
     console.error('Error upvoting doubt:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({
+      error: 'Failed to save doubt upvote',
+    });
   }
 });
 
+
 // POST /api/doubts/:id/replies/:replyId/upvote
+
 doubtRouter.post('/:id/replies/:replyId/upvote', async (req: Request, res: Response) => {
   try {
     const { id, replyId } = req.params;
-    let upvotes: number | null = null;
-    try {
-      const doubt = await DoubtModel.findOne({ id });
-      if (doubt) {
-        const reply = doubt.replies.find(r => r.id === replyId);
-        if (reply) {
-          reply.upvotes += 1;
-          await doubt.save();
-          upvotes = reply.upvotes;
-        }
-      }
-    } catch {
-      // fallback
+    const doubt = await DoubtModel.findOne({ id });
+
+    if (!doubt) {
+      return res.status(404).json({
+        error: 'Doubt not found',
+      });
     }
-    if (upvotes === null) {
-      upvotes = db.upvoteReply(id, replyId);
+
+    const reply = doubt.replies.find((item) => item.id === replyId);
+
+    if (!reply) {
+      return res.status(404).json({
+        error: 'Reply not found',
+      });
     }
-    if (upvotes === null) {
-      return res.status(404).json({ error: 'Doubt or reply not found' });
-    }
-    return res.json({ upvotes });
+
+    reply.upvotes += 1;
+    await doubt.save();
+
+    return res.json({ upvotes: reply.upvotes });
   } catch (error) {
-    console.error('Error upvoting reply:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error upvoting doubt reply:', error);
+    return res.status(500).json({
+      error: 'Failed to save reply upvote',
+    });
   }
 });
