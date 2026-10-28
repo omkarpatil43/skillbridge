@@ -89,33 +89,41 @@ const INITIAL_ROOM_SEEDS: Record<string, any[]> = {
 };
 
 const roomMessagesStore: Record<string, any[]> = { ...INITIAL_ROOM_SEEDS };
-
 /**
  * GET /api/chat/community/rooms/:roomId/messages
  * Retrieves stored messages for a chat room.
  */
+
 chatRouter.get('/community/rooms/:roomId/messages', async (req: Request, res: Response) => {
   const { roomId } = req.params;
-  try {
-    let messages: any[] = [];
-    try {
-      messages = await ChatMessageModel.find({ roomId }).sort({ createdAt: 1 }).lean();
-      if (messages.length === 0 && INITIAL_ROOM_SEEDS[roomId]) {
-        await ChatMessageModel.insertMany(INITIAL_ROOM_SEEDS[roomId]);
-        messages = await ChatMessageModel.find({ roomId }).sort({ createdAt: 1 }).lean();
-      }
-    } catch {
-      // MongoDB query failed, fall back to in-memory store
-    }
 
-    if (!messages || messages.length === 0) {
-      messages = roomMessagesStore[roomId] || [];
+  try {
+    let messages = await ChatMessageModel.find({ roomId })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    // Seed initial messages only when this room is empty.
+    if (messages.length === 0 && INITIAL_ROOM_SEEDS[roomId]) {
+      try {
+        await ChatMessageModel.insertMany(INITIAL_ROOM_SEEDS[roomId], {
+          ordered: false,
+        });
+      } catch (seedError) {
+        // A concurrent request may have inserted the seed messages already.
+        console.warn('Chat seed insertion warning:', seedError);
+      }
+
+      messages = await ChatMessageModel.find({ roomId })
+        .sort({ createdAt: 1 })
+        .lean();
     }
 
     return res.json(messages);
   } catch (error) {
-    console.error('Error fetching room messages:', error);
-    return res.json(roomMessagesStore[roomId] || []);
+    console.error('Failed to fetch Campus Chat messages:', error);
+    return res.status(500).json({
+      error: 'Failed to load chat messages from the database',
+    });
   }
 });
 
@@ -123,12 +131,25 @@ chatRouter.get('/community/rooms/:roomId/messages', async (req: Request, res: Re
  * POST /api/chat/community/rooms/:roomId/messages
  * Posts a new message to a chat room.
  */
+
 chatRouter.post('/community/rooms/:roomId/messages', async (req: Request, res: Response) => {
   const { roomId } = req.params;
-  const { senderId, senderName, senderRole, senderYear, text, attachments } = req.body;
+  const {
+    senderId,
+    senderName,
+    senderRole,
+    senderYear,
+    text,
+    attachments,
+  } = req.body;
 
-  if (!text && (!attachments || attachments.length === 0)) {
-    return res.status(400).json({ error: 'Message content or attachment is required' });
+  const messageText = typeof text === 'string' ? text : '';
+  const messageAttachments = Array.isArray(attachments) ? attachments : [];
+
+  if (!messageText.trim() && messageAttachments.length === 0) {
+    return res.status(400).json({
+      error: 'Message content or attachment is required',
+    });
   }
 
   const newMessage = {
@@ -138,22 +159,24 @@ chatRouter.post('/community/rooms/:roomId/messages', async (req: Request, res: R
     senderName: senderName || 'Anonymous Student',
     senderRole: senderRole || 'student',
     senderYear: senderYear || '1st Year',
-    text: text || '',
-    attachments: attachments || [],
+    text: messageText,
+    attachments: messageAttachments,
     reactions: {},
     createdAt: new Date(),
   };
 
-  if (!roomMessagesStore[roomId]) roomMessagesStore[roomId] = [];
-  roomMessagesStore[roomId].push(newMessage);
-
   try {
-    await ChatMessageModel.create(newMessage);
-  } catch {
-    // ignore
-  }
+    // Save to MongoDB before returning success.
+    const savedMessage = await ChatMessageModel.create(newMessage);
 
-  return res.status(201).json(newMessage);
+    return res.status(201).json(savedMessage);
+  } catch (error) {
+    console.error('Failed to save Campus Chat message:', error);
+
+    return res.status(500).json({
+      error: 'Message could not be saved. Please try again.',
+    });
+  }
 });
 
 /**
